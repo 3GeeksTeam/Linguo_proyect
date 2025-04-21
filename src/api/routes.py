@@ -8,7 +8,7 @@ from flask_jwt_extended import create_access_token
 from flask_jwt_extended import get_jwt_identity
 from flask_jwt_extended import jwt_required
 from flask_jwt_extended import JWTManager
-from app import s
+from app import s, mail
 api = Blueprint('api', __name__)
 
 import os
@@ -28,7 +28,7 @@ def registro():
     # Verificar si el correo electrónico ya existe en la base de datos
     existing_user = User.query.filter_by(email=processed_params['email']).first()
     if existing_user:
-        return jsonify({"error": "Este Email ya existe"}), 400  # Retorna un error si ya existe
+        return jsonify({"error": "Este Email ya está registrado"}), 400  # Retorna un error si ya existe
 
     # Crear el nuevo usuario
     new_user = User(email=processed_params['email'], is_active=True, is_verified = False)#Usuario no verificado por defecto
@@ -65,7 +65,7 @@ def verificar_email(token):
         return jsonify({"message": "Usuario no encontrado."}), 404
 
     if user.is_verified:
-        return jsonify({"message": "El usuario ya se encuentra verificado."}), 200
+        return jsonify({"message": "Este correo ya ha sido verificado."}), 200
 
     # Actualizar el campo de verificación
     user.is_verified = True
@@ -75,9 +75,28 @@ def verificar_email(token):
     #session['user_id'] = user.id
 
     return jsonify({"message": "Cuenta verificada exitosamente."}), 200
-   
 
+@api.route('/reenviar-verificacion', methods=['GET'])
+def reenviar_verificacion():
+    email = request.args.get('email')
+    if not email:
+        return jsonify({'error': 'Email es requerido'}), 400
 
+    # Verifica si el usuario existe
+    usuario = User.query.filter_by(email=email).first()
+    if not usuario:
+        return jsonify({'error': 'Usuario no encontrado'}), 404
+
+    if usuario.is_verified:
+        return jsonify({'msg': 'Este correo ya ha sido verificado.'}), 400
+
+    # Generar y reenviar el correo
+    try:
+        serializer = get_serializer(current_app.config['SECRET_KEY'])
+        enviar_correo_verificacion(email, mail, serializer)
+        return jsonify({'msg': 'Se ha reenviado el correo de verificación'}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 @api.route('/login', methods=['POST'])
@@ -139,7 +158,6 @@ def create_user():
     db.session.commit()  # Guardar los cambios en la base de datos
 
     return jsonify({"msg": "Profile created successfully"}), 201
-
 
 
 @api.route('/perfil', methods=['PUT'])
