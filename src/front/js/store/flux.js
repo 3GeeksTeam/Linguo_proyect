@@ -1,53 +1,31 @@
 const getState = ({ getStore, getActions, setStore }) => {
 	return {
 		store: {
-			message: null,
-			demo: [
-				{
-					title: "FIRST",
-					background: "white",
-					initial: "white"
-				},
-				{
-					title: "SECOND",
-					background: "white",
-					initial: "white"
-				}
-			]
+			token: localStorage.getItem("token") || null, //busca el token del  localStorage del navegador
+			user: null, //el usuario comienza como null hasta que se cargue la información del usuario.
+			
 		},
 		actions: {
-			// Use getActions to call a function within a fuction
-			exampleFunction: () => {
-				getActions().changeColor(0, "green");
+			// Acción para iniciar sesión
+			login: (token, user) => {
+				setStore({ token: token, user: user });
 			},
 
-			getMessage: async () => {
-				try{
-					// fetching data from the backend
-					const resp = await fetch(process.env.BACKEND_URL + "/api/hello")
-					const data = await resp.json()
-					setStore({ message: data.message })
-					// don't forget to return something, that is how the async resolves
-					return data;
-				}catch(error){
-					console.log("Error loading message from backend", error)
-				}
+			// Acción para cerrar sesión
+			logout: () => {
+				localStorage.removeItem("token");
+				setStore({ token: null, user: null });
 			},
-			changeColor: (index, color) => {
-				//get the store
+
+			// Acción para actualizar el usuario
+			updateUser: (userData) => {
 				const store = getStore();
-
-				//we have to loop the entire demo array to look for the respective index
-				//and change its color
-				const demo = store.demo.map((elm, i) => {
-					if (i === index) elm.background = color;
-					return elm;
+				setStore({
+					...store,
+					user: { ...store.user, ...userData }
 				});
-
-				//reset the global store
-				setStore({ demo: demo });
 			}
-		}
+		},
 	};
 };
 
