@@ -8,7 +8,8 @@ db = SQLAlchemy()
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), unique=True, nullable=False)
-    encoded_password = db.Column(db.String(500), unique=False, nullable=False)
+    encoded_password = db.Column(db.String(500), unique=False, nullable=True)
+    auth_provider = db.Column(db.String(20), nullable=False, default="local")  # 'local' o 'google'
     is_active = db.Column(db.Boolean(), unique=False, nullable=False)
     name = db.Column(db.String(120), nullable=True)
     sur_name = db.Column(db.String(120), nullable=True)

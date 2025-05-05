@@ -1,5 +1,6 @@
 from api.auth import is_valid_password
-from flask import  request, jsonify, Blueprint, current_app
+from flask import  request, jsonify, Blueprint, current_app, url_for, redirect
+from authlib.integrations.flask_client import OAuth 
 from api.email_utils import enviar_correo_verificacion, get_serializer
 from api.models import db, User
 from flask_cors import CORS
@@ -8,7 +9,7 @@ from flask_jwt_extended import create_access_token
 from flask_jwt_extended import get_jwt_identity
 from flask_jwt_extended import jwt_required
 from flask_jwt_extended import JWTManager
-from app import s, mail
+from app import s, mail, google
 api = Blueprint('api', __name__)
 
 import os
@@ -25,27 +26,46 @@ def registro():
     if not is_valid_password(processed_params['password']):
         return jsonify({"error": "La contraseña debe tener al menos 8 caracteres, una mayúscula y un número."}), 400
 
-    # Verificar si el correo electrónico ya existe en la base de datos
     existing_user = User.query.filter_by(email=processed_params['email']).first()
-    if existing_user:
-        return jsonify({"error": "Este Email ya está registrado"}), 400  # Retorna un error si ya existe
 
-    # Crear el nuevo usuario
-    new_user = User(email=processed_params['email'], is_active=True, is_verified = False)#Usuario no verificado por defecto
+    serializer = get_serializer(current_app.config['SECRET_KEY'])
+
+    if existing_user:
+        if existing_user.auth_provider == 'google':
+            # El usuario existe por Google, permitimos agregar contraseña y enviamos verificación
+            existing_user.set_password(processed_params['password'])
+            existing_user.auth_provider = 'both'
+            existing_user.is_verified = False  # Requiere verificación ahora
+            db.session.commit()
+
+            try:
+                enviar_correo_verificacion(processed_params['email'], current_app.extensions['mail'], serializer)
+                return jsonify({"msg": "Contraseña creada. Se ha enviado un correo de verificación a su dirección de correo electrónico."}), 200
+            except Exception as e:
+                current_app.logger.error(f"Error al enviar el correo de verificación a {processed_params['email']}: {e}")
+                return jsonify({"msg": "Contraseña creada, pero hubo un error al enviar el correo de verificación."}), 500
+
+        else:
+            return jsonify({"error": "Este Email ya está registrado con contraseña"}), 400
+
+    # Crear el nuevo usuario (registro manual)
+    new_user = User(
+        email=processed_params['email'],
+        is_active=True,
+        is_verified=False,
+        auth_provider='local'
+    )
     new_user.set_password(processed_params['password'])
 
-    # Guardar el usuario en la base de datos
     db.session.add(new_user)
     db.session.commit()
-    serializer = get_serializer(current_app.config['SECRET_KEY'])
+
     try:
         enviar_correo_verificacion(processed_params['email'], current_app.extensions['mail'], serializer)
-        return jsonify({"msg": "Usuario creado. Se ha enviado un correo de verificación a su dirección de correo electrónico."}), 201 # 201 código de creación exitosa
+        return jsonify({"msg": "Usuario creado. Se ha enviado un correo de verificación a su dirección de correo electrónico."}), 201
     except Exception as e:
         current_app.logger.error(f"Error al enviar el correo de verificación a {processed_params['email']}: {e}")
-        print(f"ERROR EN ENVÍO DE EMAIL: {e}")
-        return jsonify({"msg": "Usuario creado, pero hubo un error al enviar el correo de verificación. Por favor, inténtelo de nuevo más tarde."},500)
-
+        return jsonify({"msg": "Usuario creado, pero hubo un error al enviar el correo de verificación."}), 500
 
 
 @api.route('/verificar/<token>', methods= ['GET'])
@@ -204,6 +224,83 @@ def test_email():
         return jsonify({"msg": "Correo enviado correctamente"})
     except Exception as e:
         return jsonify({"error": str(e)})
+    
+#rutas googleauth
+@api.route('/google/login') #redirigir al login de Google
+def google_login():
+    redirect_uri =os.getenv('BACKEND_URL') + 'api/google/callback'
+    print(f"Redirigiendo a: {redirect_uri}")
+    return google.authorize_redirect(redirect_uri, state='my_custom_state')
+
+@api.route('/google/callback')
+def google_callback():
+    # Imprimir el valor de 'state' que Google manda de vuelta
+    state_from_google = request.args.get("state")
+    print("State recibido en callback:", state_from_google)
+
+    try:
+        token = google.authorize_access_token()
+        print("Token recibido:", token)
+    except Exception as e:
+        current_app.logger.error(f"Error al autorizar token de Google: {e}")
+        return jsonify({"error": "Autenticación fallida con Google"}), 400
+
+    try:
+        resp = google.get('userinfo')
+        user_info = resp.json()
+    except Exception as e:
+        current_app.logger.error(f"Error al obtener info del usuario de Google: {e}")
+        return jsonify({"error": "No se pudo obtener información del usuario"}), 400
+
+    email = user_info.get('email')
+    if not email:
+        return jsonify({"error": "No se pudo obtener el email del usuario"}), 400
+
+    # Buscar usuario
+    user = User.query.filter_by(email=email).first()
+
+    if user is None:
+    # Usuario no existe, lo creamos con proveedor Google
+        user = User(
+            email=email,
+            name=user_info.get('given_name'),
+            sur_name=user_info.get('family_name'),
+            is_active=True,
+            is_verified=True,  # Confianza en Google
+            auth_provider='google',
+            encoded_password="GOOGLE_LOGIN"  # Valor falso para cumplir la restricción NOT NULL
+    )
+        db.session.add(user)
+        db.session.commit()
+
+    elif user.auth_provider == 'local':
+        # El usuario ya existe con login local, lo actualizamos a 'both'
+        user.auth_provider = 'both'
+        db.session.commit()
+
+# En cualquier caso (nuevo o ya existente), continuamos con el login
+# por ejemplo generando token, etc.
+
+
+    # Crear token JWT
+    access_token = create_access_token(identity=user)
+
+    # URL de tu frontend (ajústala según sea necesario)
+    frontend_url=os.getenv('BASENAME')
+    
+    # Redirige al frontend con el token JWT como parámetro
+    redirect_url = f"{frontend_url}?access_token={access_token}"
+
+    return jsonify({
+        "access_token": access_token,
+        "user_id": user.id,
+        "user": user.serialize(),
+        "msg": "Login con Google exitoso",
+        "redirect_url": redirect_url
+    }), 200
+
+
+
 
 
 

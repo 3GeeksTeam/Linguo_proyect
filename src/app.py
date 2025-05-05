@@ -14,6 +14,7 @@ from api.email_utils import get_serializer
 from api.admin import setup_admin
 from api.commands import setup_commands
 from api.auth import jwt
+from authlib.integrations.flask_client import OAuth
 
 # Create the app instance
 app = Flask(__name__)
@@ -41,9 +42,28 @@ setup_commands(app)
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=8)
 jwt.init_app(app)
 
+#GoogleAuth
+oauth = OAuth(app)
+google = oauth.register(
+    name='google',
+    client_id='879940519700-tgthd14ec72ou36squjeshnd3l0njb68.apps.googleusercontent.com',
+    client_secret=os.getenv("GOOGLE_SECRET_CLIENT_ID"),
+    access_token_url='https://oauth2.googleapis.com/token',
+    access_token_params=None,
+    authorize_url='https://accounts.google.com/o/oauth2/auth',
+    authorize_params=None,
+    api_base_url='https://www.googleapis.com/oauth2/v1/',
+    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+    userinfo_endpoint='https://openidconnect.googleapis.com/v1/userinfo',
+    client_kwargs={'scope': 'openid email profile'},
+    redirect_uri=os.getenv('BACKEND_URL') + 'api/google/callback',
+    state=True
+)
+app.google = google
+
 # Flask-Mail
 
-app.config['BASE_URL'] = 'https://crispy-space-fortnight-v6qg9jw55vxjcx4pw-3001.app.github.dev/'
+app.config['BASE_URL'] = os.getenv('BACKEND_URL')
 app.config['MAIL_SERVER'] = 'smtp.sendgrid.net'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
