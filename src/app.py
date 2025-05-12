@@ -2,9 +2,8 @@
 This module takes care of starting the API Server, Loading the DB and Adding the endpoints
 """
 import os
-from flask import Flask, request, jsonify, url_for, send_from_directory
+from flask import Flask, jsonify, send_from_directory
 from flask_migrate import Migrate
-from flask_swagger import swagger
 from flask_mail import Mail, Message
 from itsdangerous import URLSafeTimedSerializer
 from datetime import timedelta
@@ -69,7 +68,7 @@ app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
 app.config['MAIL_USERNAME'] = 'apikey'
 app.config['MAIL_PASSWORD'] = os.getenv('SENDGRID_API_KEY')
-app.config['MAIL_DEFAULT_SENDER'] = 'moya91.dmm@gmail.com'
+app.config['MAIL_DEFAULT_SENDER'] = os.getenv('SENDER_MAIL')
 
 mail = Mail(app)
 app.mail = mail

@@ -1,5 +1,5 @@
 from api.auth import is_valid_password
-from flask import  request, jsonify, Blueprint, current_app, url_for, redirect
+from flask import  request, jsonify, Blueprint, current_app, url_for, redirect, session, abort
 from authlib.integrations.flask_client import OAuth 
 from api.email_utils import enviar_correo_verificacion, get_serializer
 from api.models import db, User
@@ -7,12 +7,11 @@ from flask_cors import CORS
 from flask_jwt_extended import jwt_required
 from flask_jwt_extended import create_access_token
 from flask_jwt_extended import get_jwt_identity
-from flask_jwt_extended import jwt_required
-from flask_jwt_extended import JWTManager
 from app import s, mail, google
 api = Blueprint('api', __name__)
 
 import os
+import requests
 
 # Allow CORS requests to this API
 CORS(api)
@@ -68,6 +67,8 @@ def registro():
         return jsonify({"msg": "Usuario creado, pero hubo un error al enviar el correo de verificación."}), 500
 
 
+
+
 @api.route('/verificar/<token>', methods= ['GET'])
 def verificar_email(token):
     """
@@ -81,6 +82,7 @@ def verificar_email(token):
 
     # Buscar el usuario por email
     user = User.query.filter_by(email=email).first()
+    print(f"Tipo de 'user' después de la consulta: {type(user)}")
     if user is None:
         return jsonify({"message": "Usuario no encontrado."}), 404
 
@@ -104,6 +106,7 @@ def reenviar_verificacion():
 
     # Verifica si el usuario existe
     usuario = User.query.filter_by(email=email).first()
+    
     if not usuario:
         return jsonify({'error': 'Usuario no encontrado'}), 404
 
@@ -124,14 +127,23 @@ def create_token():
     email = request.json.get("email", None)
     password = request.json.get("password", None)
     user = User.query.filter_by(email=email).one_or_none()
+    #print(f"Tipo de 'user' después de la consulta: {type(user)}")
 
     if not user or not user.check_password(password):
         return jsonify("Correo o contraseña incorrecto"), 401
     if not user.is_verified:
         return jsonify({"msg": "Correo no verificado. Por favor revisa tu bandeja de entrada."}), 403
     
-    acces_token = create_access_token(identity=user)
-    return jsonify({"access_token": acces_token, "user_id": user.id})
+    access_token = create_access_token(identity=user.id)
+    
+    user.access_token = access_token
+    db.session.commit()
+
+    return jsonify({
+        "access_token": access_token,
+        "user_id": user.id
+    }), 200
+    
 
 
 @api.route('/perfil', methods=['GET'])
@@ -258,9 +270,10 @@ def google_callback():
 
     # Buscar usuario
     user = User.query.filter_by(email=email).first()
+    #print(f"Tipo de 'user' después de la consulta: {type(user)}")
 
     if user is None:
-    # Usuario no existe, lo creamos con proveedor Google
+        # Usuario no existe, lo creamos con proveedor Google
         user = User(
             email=email,
             name=user_info.get('given_name'),
@@ -269,30 +282,31 @@ def google_callback():
             is_verified=True,  # Confianza en Google
             auth_provider='google',
             encoded_password="GOOGLE_LOGIN"  # Valor falso para cumplir la restricción NOT NULL
-    )
+        )
         db.session.add(user)
         db.session.commit()
 
     elif user.auth_provider == 'local':
-        # El usuario ya existe con login local, lo actualizamos a 'both'
+        # Si el usuario ya existe con login local, lo actualizamos a 'both'
         user.auth_provider = 'both'
         db.session.commit()
 
-# En cualquier caso (nuevo o ya existente), continuamos con el login
-# por ejemplo generando token, etc.
-
 
     # Crear token JWT
-    access_token = create_access_token(identity=user)
+    jwt_token = create_access_token(identity=user.id)  # Aquí estamos pasando solo el ID
+    user.access_token = jwt_token # lo guarda en la variable del modelo access-token
+    user.access_token_google = token.get("access_token")
+    db.session.commit()
+    
 
     # URL de tu frontend (ajústala según sea necesario)
-    frontend_url=os.getenv('BASENAME')
-    
+    frontend_url = os.getenv('BASENAME')
+
     # Redirige al frontend con el token JWT como parámetro
-    redirect_url = f"{frontend_url}?access_token={access_token}"
+    redirect_url = f"{frontend_url}?access_token={jwt_token}"
 
     return jsonify({
-        "access_token": access_token,
+        "access_token": jwt_token,
         "user_id": user.id,
         "user": user.serialize(),
         "msg": "Login con Google exitoso",
@@ -300,7 +314,52 @@ def google_callback():
     }), 200
 
 
+@api.route('/logOut_test', methods=['POST'])
+@jwt_required()
+def logOut_test():
+    print("Se llamó a /logout")  # Este debería aparecer en la terminal
+    id = get_jwt_identity()
+    user = db.session.get(User, id)
+   
 
+    if user and user.access_token:
+        token = user.access_token
 
+        # Intentar revocar con Google
+        revoke = requests.post(
+            'https://oauth2.googleapis.com/revoke',
+            params={'token': token},
+            headers={'content-type': 'application/x-www-form-urlencoded'}
+        )
+
+        if revoke.status_code == 200:
+            print("Token de Google revocado correctamente.")
+        else:
+            print("Error o token no era de Google:", revoke.text)
+
+        # Borrar el token guardado
+        user.access_token = None
+        user.access_token_google = None
+        db.session.add(user)
+        db.session.commit()        
+        print(f"Antes del commit, token es: {user.access_token}")
+
+    # Limpia la sesión del navegador, si usás sesión
+    session.pop('access_token', None)
+    #session.clear()
+
+    return jsonify({'message': 'Logout exitoso'}), 200
+
+@api.route('/delete_user', methods=['DELETE'])
+@jwt_required()
+def delete_account():
+    id = get_jwt_identity()
+    user = db.session.get(User, id)
+    db.session.delete(user)
+    db.session.commit()
+    
+    return jsonify({"msg": "Cuenta eliminada correctamente"}), 200
+    
+    
 
 
