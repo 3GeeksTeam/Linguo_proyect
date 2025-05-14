@@ -71,7 +71,7 @@ export const Login = () => {
                     onChange={(e) => setPassword(e.target.value)}
                     required />
                 </div>
-                <button type="submit" className="btn btn-danger mt-2 mb-5 w-100">
+                <button type="submit" className="btn btn-primary mt-2 mb-5 w-100">
                   Inciar Sesión
                 </button>
                 <Link to="/register" style={{ textDecoration: 'none' }}>
@@ -79,7 +79,7 @@ export const Login = () => {
                 </Link>
               </form>
               <div className="text-center">
-              {message && <p style={{ color: "yellow" }}>{message}</p>} {/* Mostrar el mensaje de respuesta */}
+              {message && <p style={{ color: "black" }}>{message}</p>} {/* Mostrar el mensaje de respuesta */}
               </div>
             </div>
           </div>

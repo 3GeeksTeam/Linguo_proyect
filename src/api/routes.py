@@ -1,6 +1,7 @@
 from api.auth import is_valid_password
 from flask import  request, jsonify, Blueprint, current_app, url_for, redirect, session, abort
 from authlib.integrations.flask_client import OAuth 
+from werkzeug.security import check_password_hash
 from api.email_utils import enviar_correo_verificacion, get_serializer
 from api.models import db, User
 from flask_cors import CORS
@@ -39,10 +40,10 @@ def registro():
 
             try:
                 enviar_correo_verificacion(processed_params['email'], current_app.extensions['mail'], serializer)
-                return jsonify({"msg": "Contraseña creada. Se ha enviado un correo de verificación a su dirección de correo electrónico."}), 200
+                return jsonify({"msg": "Usuario creado. Se ha enviado un correo de verificación a su dirección de correo electrónico."}), 200
             except Exception as e:
                 current_app.logger.error(f"Error al enviar el correo de verificación a {processed_params['email']}: {e}")
-                return jsonify({"msg": "Contraseña creada, pero hubo un error al enviar el correo de verificación."}), 500
+                return jsonify({"error": "Contraseña creada, pero hubo un error al enviar el correo de verificación."}), 500
 
         else:
             return jsonify({"error": "Este Email ya está registrado con contraseña"}), 400
@@ -64,7 +65,7 @@ def registro():
         return jsonify({"msg": "Usuario creado. Se ha enviado un correo de verificación a su dirección de correo electrónico."}), 201
     except Exception as e:
         current_app.logger.error(f"Error al enviar el correo de verificación a {processed_params['email']}: {e}")
-        return jsonify({"msg": "Usuario creado, pero hubo un error al enviar el correo de verificación."}), 500
+        return jsonify({"error": "Usuario creado, pero hubo un error al enviar el correo de verificación."}), 500
 
 
 
@@ -78,16 +79,16 @@ def verificar_email(token):
         email = s.loads(token, salt='email-confirm-salt', max_age=3600)  # El token expira en 1 hora
     except Exception as e:
         current_app.logger.error(f"Error en token: {e}")
-        return jsonify({"message": "Enlace de verificación inválido o expirado."}), 400
+        return jsonify({"error": "Enlace de verificación inválido o expirado."}), 400
 
     # Buscar el usuario por email
     user = User.query.filter_by(email=email).first()
     print(f"Tipo de 'user' después de la consulta: {type(user)}")
     if user is None:
-        return jsonify({"message": "Usuario no encontrado."}), 404
+        return jsonify({"error": "Usuario no encontrado."}), 404
 
     if user.is_verified:
-        return jsonify({"message": "Este correo ya ha sido verificado."}), 200
+        return jsonify({"error": "Este correo ya ha sido verificado."}), 200
 
     # Actualizar el campo de verificación
     user.is_verified = True
@@ -111,7 +112,7 @@ def reenviar_verificacion():
         return jsonify({'error': 'Usuario no encontrado'}), 404
 
     if usuario.is_verified:
-        return jsonify({'msg': 'Este correo ya ha sido verificado.'}), 400
+        return jsonify({'error': 'Este correo ya ha sido verificado.'}), 400
 
     # Generar y reenviar el correo
     try:
@@ -132,7 +133,7 @@ def create_token():
     if not user or not user.check_password(password):
         return jsonify("Correo o contraseña incorrecto"), 401
     if not user.is_verified:
-        return jsonify({"msg": "Correo no verificado. Por favor revisa tu bandeja de entrada."}), 403
+        return jsonify({"error": "Correo no verificado. Por favor revisa tu bandeja de entrada."}), 403
     
     access_token = create_access_token(identity=user.id)
     
@@ -354,12 +355,21 @@ def logOut_test():
 @jwt_required()
 def delete_account():
     id = get_jwt_identity()
+    data = request.get_json()  # :marca_de_verificación_blanca: asegúrate de obtener el JSON correctamente
+    if not data or "password" not in data:
+        return jsonify({"msg": "La contraseña es requerida."}), 400
+    password = data["password"]
     user = db.session.get(User, id)
+    if user is None:
+        return jsonify({"msg": "Usuario no encontrado."}), 404
+    if not user.check_password(password):
+        return jsonify({"msg": "Contraseña incorrecta."}), 401
     db.session.delete(user)
     db.session.commit()
-    
     return jsonify({"msg": "Cuenta eliminada correctamente"}), 200
-    
-    
+
+
+
+
 
 

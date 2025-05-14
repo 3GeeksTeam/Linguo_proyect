@@ -1,3 +1,6 @@
 /* 
     General Styles used on every website (Don't Repeat Yourself)
 */
+body {
+  background: url('https://sdmntprukwest.oaiusercontent.com/files/00000000-7fbc-6243-8b47-6ecbe19c4bbc/raw?se=2025-05-14T14%3A22%3A29Z&sp=r&sv=2024-08-04&sr=b&scid=00000000-0000-0000-0000-000000000000&skoid=76024c37-11e2-4c92-aa07-7e519fbe2d0f&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2025-05-14T09%3A20%3A59Z&ske=2025-05-15T09%3A20%3A59Z&sks=b&skv=2024-08-04&sig=rtkNJ8/xNqwwJHfgC3gi6Xz%2BsgXkTR5DFFtN5LOTVy4%3D') no-repeat center center/cover fixed;
+}
