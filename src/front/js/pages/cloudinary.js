@@ -1,10 +1,13 @@
-import React from 'react'
-import { useState } from 'react'
+import React, { useState } from 'react'
+
 
 const Cloudinary = () => {
 
-    const preset_name = "ljgmopal";                         //16 Pegamos el "name" rescatado en el punto 24
-    const cloud_name = "do4hjuso8"                          //16.2 Pegamos el cloud_name rescatado en punto 20
+    const cloud_name = process.env.REACT_APP_CLOUDINARY_CLOUD_NAME;            //16 Pegamos el "name" rescatado en el punto 24
+    const preset_name = process.env.REACT_APP_CLOUDINARY_UPLOAD_PRESET;                 //16.2 Pegamos el cloud_name rescatado en punto 20     
+  
+               
+                              
 
     const [ image, setImage ] = useState('');       //12 Creamos estado local que guarde la url de la imagen subida
     const [ loading, setLoading ] = useState(false) //7 Creamos un estado local con valor incial boolean "false" para saber si la imagen esta cargando.
