@@ -46,13 +46,19 @@ export const Register = () => {
     sign_up();
   };
 
+  const handleGoogleLogin = () => {
+    // Aquí puedes redirigir al endpoint de autenticación de Google
+    window.location.href = `${process.env.BACKEND_URL}api/google/login`;
+  };
+  
+
   return (
     <div className="container py-3 mt-4">
       <div className="row">
         <div className="card-login col-md-6 col-sm-8">
           <div className="cardshadow card">
             <div className="card-body">
-              <h3 className="card-title1 text-center mb-4"style={{fontFamily :'fantasy'}}>Registrarse</h3>
+              <h3 className="card-title1 text-center mb-4" style={{ fontFamily: 'fantasy' }}>Registrarse</h3>
               <form onSubmit={handleSubmit}>
                 <div className="label mb-4">
                   <label htmlFor="inputEmail3" className="form-label">Email</label>
@@ -98,8 +104,22 @@ export const Register = () => {
                   Registrarse
                 </button>
               </form>
+              <div className="mb-4">
+                <button
+                  type="button"
+                  className="btn btn-light w-100 d-flex align-items-center justify-content-center gap-2 border"
+                  onClick={handleGoogleLogin}
+                >
+                  <img
+                    src="https://cdn.cdnlogo.com/logos/g/35/google-icon.svg"
+                    alt="Google logo"
+                    style={{ width: "20px", height: "20px" }}
+                  />
+                  Inicia sesión con Google
+                </button>
+              </div>
               <div className="text-center">
-              {message && <p style={{ color: "black" }}>{message}</p>} {/* Mostrar el mensaje de respuesta */}
+                {message && <p style={{ color: "black" }}>{message}</p>} {/* Mostrar el mensaje de respuesta */}
               </div>
             </div>
           </div>

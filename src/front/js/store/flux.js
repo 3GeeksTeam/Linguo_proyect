@@ -3,18 +3,20 @@ const getState = ({ getStore, getActions, setStore }) => {
 		store: {
 			token: localStorage.getItem("token") || null, //busca el token del  localStorage del navegador
 			user: null, //el usuario comienza como null hasta que se cargue la información del usuario.
+			auth_provider: localStorage.getItem("auth_provider") || null
 			
 		},
 		actions: {
 			// Acción para iniciar sesión
-			login: (token, user) => {
-				setStore({ token: token, user: user });
+			login: (token, auth_provider) => {
+				setStore({ token: token,  auth_provider:auth_provider });
 			},
 
 			// Acción para cerrar sesión
 			logout: () => {
 				localStorage.removeItem("token");
-				setStore({ token: null, user: null });
+				localStorage.removeItem("auth_provider");
+				setStore({ token: null, user: null, auth_provider: null });
 			},
 
 			// Acción para actualizar el usuario

@@ -142,7 +142,8 @@ def create_token():
 
     return jsonify({
         "access_token": access_token,
-        "user_id": user.id
+        "user_id": user.id,
+        "auth_provider": user.auth_provider
     }), 200
     
 
@@ -242,7 +243,6 @@ def test_email():
 @api.route('/google/login') #redirigir al login de Google
 def google_login():
     redirect_uri =os.getenv('BACKEND_URL') + 'api/google/callback'
-    print(f"Redirigiendo a: {redirect_uri}")
     return google.authorize_redirect(redirect_uri, state='my_custom_state')
 
 @api.route('/google/callback')
@@ -301,18 +301,13 @@ def google_callback():
     
 
     # URL de tu frontend (ajústala según sea necesario)
-    frontend_url = os.getenv('BASENAME')
+    frontend_url = os.getenv('FRONT_URL')
 
     # Redirige al frontend con el token JWT como parámetro
-    redirect_url = f"{frontend_url}?access_token={jwt_token}"
+    redirect_url = f"{frontend_url}?access_token={jwt_token}&auth_provider={user.auth_provider}"
+    return redirect(redirect_url)
 
-    return jsonify({
-        "access_token": jwt_token,
-        "user_id": user.id,
-        "user": user.serialize(),
-        "msg": "Login con Google exitoso",
-        "redirect_url": redirect_url
-    }), 200
+    
 
 
 @api.route('/logOut_test', methods=['POST'])
@@ -355,15 +350,18 @@ def logOut_test():
 @jwt_required()
 def delete_account():
     id = get_jwt_identity()
-    data = request.get_json()  # :marca_de_verificación_blanca: asegúrate de obtener el JSON correctamente
-    if not data or "password" not in data:
-        return jsonify({"msg": "La contraseña es requerida."}), 400
-    password = data["password"]
     user = db.session.get(User, id)
     if user is None:
         return jsonify({"msg": "Usuario no encontrado."}), 404
-    if not user.check_password(password):
-        return jsonify({"msg": "Contraseña incorrecta."}), 401
+    # Si el usuario NO es de Google, debe ingresar la contraseña
+    if user.auth_provider != "google":
+        data = request.get_json() 
+        password = data.get("password")
+        if not password:
+            return jsonify({"msg": "La contraseña es requerida."}), 400
+        if not user.check_password(password):
+            return jsonify({"msg": "Contraseña incorrecta."}), 401
+    # Eliminar usuario
     db.session.delete(user)
     db.session.commit()
     return jsonify({"msg": "Cuenta eliminada correctamente"}), 200
