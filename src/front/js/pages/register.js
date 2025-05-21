@@ -1,17 +1,17 @@
 import React, { useState } from "react";
 import { useNavigate } from 'react-router-dom';
-
+import { toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 export const Register = () => {
   const [email, setEmail] = useState(""); // Guardamos el email
   const [password, setPassword] = useState(""); // Guardamos la contraseña
   const [confirmPassword, setConfirmPassword] = useState(""); // Guardamos la confirmación de contraseña
-  const [message, setMessage] = useState("");
   const navigate = useNavigate();
 
   const sign_up = async () => {
     if (password !== confirmPassword) {
-      setMessage("Las contraseñas no coinciden.");
+      toast.error("Las contraseñas no coinciden.", { autoClose: false });
       return;
     }
 
@@ -28,16 +28,14 @@ export const Register = () => {
       });
 
       const data = await response.json();
-
-      if (data.error) {
-        setMessage(data.error); // Si la respuesta tiene "error", lo mostramos
-        console.log(data)
+      if (!response.ok) {
+        toast.error(data.error, { autoClose: false }); // Si la respuesta tiene "error", lo mostramos
       } else {
-        alert(data.msg);
+        toast.success(data.msg, { autoClose: false });
         navigate("/login");
       }
     } catch (error) {
-      setMessage("Hubo un problema con la solicitud. Intenta nuevamente."); // Si ocurre un error en la solicitud
+      toast.info("Registro fallido. Intente nuevamente.", { autoClose: false }); // Si ocurre un error en la solicitud
     }
   };
 
@@ -51,7 +49,6 @@ export const Register = () => {
     window.location.href = `${process.env.BACKEND_URL}api/google/login`;
   };
   
-
   return (
     <div className="container py-3 mt-4">
       <div className="row">
@@ -115,11 +112,8 @@ export const Register = () => {
                     alt="Google logo"
                     style={{ width: "20px", height: "20px" }}
                   />
-                  Inicia sesión con Google
+                  Iniciar sesión con Google
                 </button>
-              </div>
-              <div className="text-center">
-                {message && <p style={{ color: "black" }}>{message}</p>} {/* Mostrar el mensaje de respuesta */}
               </div>
             </div>
           </div>

@@ -1,14 +1,36 @@
-import React, { useState, useContext, useEffect } from "react";
-import { useNavigate } from 'react-router-dom';
-import { Link } from "react-router-dom";
+import React,{ useState, useContext, useEffect } from "react";
+import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { Context } from "../store/appContext";
+import { toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+
 
 export const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [message, setMessage] = useState("");
   const navigate = useNavigate();
   const { actions, store } = useContext(Context)
+  const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    const msg = searchParams.get('msg');
+    if (msg === 'expirado') {
+      toast.error('El enlace ha expirado. Solicita uno nuevo.', {
+        autoClose: false
+      });
+    } else if (msg === 'usuario_no_encontrado') {
+      toast.error('Usuario no encontrado.', {
+        autoClose: false
+      });
+    } else if (msg === 'ya_verificado') {
+        toast.info('Este correo ya está verificado.');
+    } else if (msg === 'verificado') {
+        toast.success('Correo verificado correctamente. Ya puede iniciar sesión.', {
+          autoClose: 3000 // 3 segundos
+      });
+    }
+  }, [searchParams]);
+
 
   const sign_in = async (e) => {
     e.preventDefault();
@@ -25,37 +47,24 @@ export const Login = () => {
         }),
       });
 
+      const data = await response.json(); // Convertimos la respuesta a JSON
+
       if (!response.ok) {
-        const errorData = await response.json();
-        setMessage(errorData.msg || "Hubo un error con el inicio de sesión.");
+        toast.error(data.error, { autoClose: false });
         return;
       }
-
-      const data = await response.json(); // Convertimos la respuesta a JSON
-      localStorage.setItem("token", data.access_token);  // Guardamos el token en el localStorage
-      localStorage.setItem("user_id", data.user_id)
-      localStorage.setItem("auth_provider", data.auth_provider);
       actions.login(data.access_token, data.user_id, data.auth_provider);
-    
-
-      setMessage("¡Usuario logueado con éxito!");
       navigate("/");
 
     } catch (error) {
-      console.error("Error al hacer la solicitud:", error); // Mostramos el error en la consola
-      setMessage("Hubo un problema con la solicitud. Intenta nuevamente.");
+      toast.info("Error al iniciar sesión. Intente nuevamente.", { autoClose: false });
     }
   };
 
   const handleGoogleLogin = () => {
     // Aquí puedes redirigir al endpoint de autenticación de Google
     window.location.href = `${process.env.BACKEND_URL}api/google/login`;
-    
-    
   };
-  
-  
-  
 
   return (
     <div className="container py-3 mt-4">
@@ -100,11 +109,8 @@ export const Login = () => {
                     alt="Google logo"
                     style={{ width: "20px", height: "20px" }}
                   />
-                  Inicia sesión con Google
+                  Iniciar sesión con Google
                 </button>
-              </div>
-              <div className="text-center">
-                {message && <p style={{ color: "black" }}>{message}</p>} {/* Mostrar el mensaje de respuesta */}
               </div>
             </div>
           </div>
