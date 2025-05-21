@@ -28,6 +28,7 @@ def enviar_correo_verificacion(email, mail, serializer):
             <a href="{link_verificacion}">{link_verificacion}</a><br><br> 
             <p>¿Tu enlace ha caducado?</p>
             <a href="{reenvio_link}">Haz clic aquí para solicitar uno nuevo</a>
+            
         '''
     )
     

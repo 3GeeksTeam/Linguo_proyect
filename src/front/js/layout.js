@@ -4,11 +4,14 @@ import ScrollToTop from "./component/scrollToTop";
 import { BackendURL } from "./component/backendURL";
 
 import { Home } from "./pages/home";
+import {Perfil} from "./pages/profile";
 import { Demo } from "./pages/demo";
 import { Single } from "./pages/single";
 import Register from "./pages/register";
 import Login from "./pages/login";
 import injectContext from "./store/appContext";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 import { Navbar } from "./component/navbar";
 import { Footer } from "./component/footer";
@@ -26,8 +29,10 @@ const Layout = () => {
             <BrowserRouter basename={basename}>
                 <ScrollToTop>
                     <Navbar />
+                    <ToastContainer position="top-center" autoClose={5000} />
                     <Routes>
                         <Route element={<Home />} path="/" />
+                        <Route element={<Perfil />} path="/perfil" />
                         <Route element={<Demo />} path="/demo" />
                         <Route element={<Single />} path="/single/:theid" />
                         <Route element={<Login />} path="/login" />

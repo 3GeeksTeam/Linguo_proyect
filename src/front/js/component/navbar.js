@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useContext } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Context } from "../store/appContext";
+import { toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+
 export const Navbar = () => {
   const { store, actions } = useContext(Context);
   const [password, setPassword] = useState("");
@@ -8,19 +11,43 @@ export const Navbar = () => {
   const [isLogged, setIsLogged] = useState(!!store.token);
   const navigate = useNavigate();
 
+  const get_profile = async () => {
+
+		const token = localStorage.getItem("token");
+
+		const myHeaders = {
+			"Content-Type": "application/json",
+			Authorization: `Bearer ${token}`,
+		};
+
+		const requestOptions = {
+			method: "GET",
+			headers: myHeaders,
+			redirect: "follow"
+		};
+
+		try {
+			const response = await fetch(`${process.env.BACKEND_URL}api/perfil`, requestOptions);
+
+			if (!response.ok) {
+				throw new Error('Error al obtener el perfil');
+			}
+
+			const result = await response.json();
+			setUser({ ...user, ...result });
+			actions.updateUser(result);
+		} catch (error) {
+			console.error("Error:", error);
+		}
+	};
+
   const logoutUser = () => {
     actions.logout();
     navigate("/login");
   };
   const delete_account = async () => {
     try {
-      const token = store.token;
-      if (!token) {
-        setMessage("Sesión expirada. Por favor inicia sesión nuevamente.");
-        actions.logout();
-        navigate("/login");
-        return;
-      }
+      const token = localStorage.getItem("token")
       const body =
         store.auth_provider === "google"
           ? {}
@@ -44,7 +71,7 @@ export const Navbar = () => {
       if (modalInstance) modalInstance.hide();
       setPassword("");
       setMessage("");
-      alert("¡Cuenta eliminada con éxito!");
+      toast.success(data.msg, { autoClose: false });
       actions.logout();
       navigate("/register");
     } catch (error) {
@@ -55,6 +82,22 @@ export const Navbar = () => {
   useEffect(() => {
     setIsLogged(!!store.token);
   }, [store.token]);
+
+  useEffect(() => {
+		const fetchProfile = async () => {
+			if (store.token) {
+				setIsLogged(true);
+				await get_profile();
+
+			} else {
+				setIsLogged(false);
+			}
+		};
+
+		fetchProfile();
+	}, [store.token]); // Solo se ejecuta cuando cambia el token
+
+  
   return (
     <>
       <nav className="row navbar py-0 sticky-top bg-light">
@@ -91,6 +134,9 @@ export const Navbar = () => {
                     Cerrar Sesión
                   </div>
                 </li>
+                <Link className="dropdown-item" to="/perfil" style={{ textDecoration: 'none' }}>
+									Perfil
+								</Link>
               </ul>
             </div>
           ) : (
