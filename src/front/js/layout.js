@@ -15,6 +15,7 @@ import "react-toastify/dist/ReactToastify.css";
 
 import { Navbar } from "./component/navbar";
 import { Footer } from "./component/footer";
+import { WindowChat } from "./component/windowChat";
 
 //create your first component
 const Layout = () => {
@@ -38,6 +39,7 @@ const Layout = () => {
                         <Route element={<Login />} path="/login" />
                         <Route element={<Register />} path="/register" />
                         <Route element={<h1>Not found!</h1>} />
+                        <Route element={<WindowChat/>} path="/chat" />
                     </Routes>
                     <Footer />
                 </ScrollToTop>
